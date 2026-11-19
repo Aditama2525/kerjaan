@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>重量落下チェッカー</title>
+
+<style>
+
+*{
+    box-sizing:border-box;
+    margin:0;
+    padding:0;
+}
+
+body{
+    background:#eef2f7;
+    font-family:"Segoe UI","Yu Gothic UI",sans-serif;
+    color:#1e293b;
+}
+
+.header{
+    background:linear-gradient(135deg,#2563eb,#1d4ed8);
+    color:white;
+    padding:25px;
+    box-shadow:0 4px 15px rgba(0,0,0,.15);
+}
+
+.header h1{
+    font-size:28px;
+}
+
+.header p{
+    opacity:.8;
+    margin-top:5px;
+}
+
+.container{
+    max-width:1400px;
+    margin:auto;
+    padding:20px;
+}
+
+.stats{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:15px;
+    margin-bottom:20px;
+}
+
+.stat{
+    background:white;
+    border-radius:16px;
+    padding:20px;
+    box-shadow:0 5px 15px rgba(0,0,0,.08);
+    text-align:center;
+}
+
+.stat-title{
+    color:#64748b;
+    margin-bottom:10px;
+}
+
+.stat-value{
+    font-size:30px;
+    font-weight:bold;
+    color:#2563eb;
+}
+
+.grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:20px;
+}
+
+.card{
+    background:white;
+    padding:20px;
+    border-radius:16px;
+    box-shadow:0 5px 15px rgba(0,0,0,.08);
+}
+
+.card h2{
+    margin-bottom:10px;
+    color:#2563eb;
+}
+
+.card p{
+    color:#64748b;
+    margin-bottom:10px;
+}
+
+textarea{
+    width:100%;
+    height:240px;
+    resize:vertical;
+    border:1px solid #dbeafe;
+    border-radius:12px;
+    padding:12px;
+    font-size:15px;
+    outline:none;
+}
+
+textarea:focus{
+    border-color:#2563eb;
+    box-shadow:0 0 0 4px rgba(37,99,235,.15);
+}
+
+.actions{
+    margin-top:15px;
+    display:flex;
+    gap:10px;
+}
+
+button{
+    border:none;
+    border-radius:10px;
+    padding:12px 18px;
+    cursor:pointer;
+    font-size:15px;
+    transition:.2s;
+}
+
+.primary{
+    background:#2563eb;
+    color:white;
+}
+
+.primary:hover{
+    background:#1d4ed8;
+}
+
+.secondary{
+    background:#e2e8f0;
+}
+
+.secondary:hover{
+    background:#cbd5e1;
+}
+
+.result pre{
+    background:#0f172a;
+    color:#f8fafc;
+    border-radius:12px;
+    padding:20px;
+    min-height:530px;
+    white-space:pre-wrap;
+    line-height:1.8;
+    overflow:auto;
+}
+
+.toast{
+    position:fixed;
+    bottom:20px;
+    right:20px;
+    background:#10b981;
+    color:white;
+    padding:12px 20px;
+    border-radius:10px;
+    opacity:0;
+    transition:.3s;
+}
+
+.toast.show{
+    opacity:1;
+}
+
+@media(max-width:900px){
+
+    .grid{
+        grid-template-columns:1fr;
+    }
+
+    .stats{
+        grid-template-columns:1fr;
+    }
+
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="header">
+    <h1>重量落下チェッカー</h1>
+    <p>NG重量レポート自動作成ツール</p>
+</div>
+
+<div class="container">
+
+    <div class="stats">
+
+        <div class="stat">
+            <div class="stat-title">トーカン</div>
+            <div class="stat-value" id="tokanTotal">0</div>
+        </div>
+
+        <div class="stat">
+            <div class="stat-title">トート</div>
+            <div class="stat-value" id="totoTotal">0</div>
+        </div>
+
+        <div class="stat">
+            <div class="stat-title">会計</div>
+            <div class="stat-value" id="grandTotal">0</div>
+        </div>
+
+    </div>
+
+    <div class="grid">
+
+        <div>
+
+            <div class="card">
+
+                <h2>トーカン</h2>
+
+                <p>
+                    Format: berat jumlah<br>
+                    Contoh:
+                </p>
+
+                <pre style="margin-bottom:10px;">12.6 1
+12.7 3
+11.9 2
+11.8 6</pre>
+
+                <textarea id="tokan"></textarea>
+
+            </div>
+
+            <div class="card">
+
+                <h2>トート</h2>
+
+                <textarea id="toto"></textarea>
+
+                <div class="actions">
+
+                    <button class="primary" onclick="generate()">
+                        生成
+                    </button>
+
+                    <button class="secondary" onclick="copyResult()">
+                        コピー
+                    </button>
+
+                    <button class="secondary" onclick="clearAll()">
+                        クリア
+                    </button>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="card result">
+
+            <h2>プレビュー</h2>
+
+            <pre id="hasil"></pre>
+
+        </div>
+
+    </div>
+
+</div>
+
+<div id="toast" class="toast">
+コピーしました
+</div>
+
+<script>
+
+function proses(text){
+
+    let atas = [];
+    let bawah = [];
+    let total = 0;
+
+    let lines = text.trim().split(/\n/);
+
+    for(let line of lines){
+
+        line = line.trim();
+
+        if(!line) continue;
+
+        let p = line.split(/\s+/);
+
+        if(p.length < 2) continue;
+
+        let berat = parseFloat(p[0]);
+        let jumlah = parseInt(p[1]);
+
+        total += jumlah;
+
+        let item = {
+            berat: berat.toFixed(1),
+            jumlah: jumlah
+        };
+
+        if(berat > 12.5){
+            atas.push(item);
+        }
+        else if(berat < 12.0){
+            bawah.push(item);
+        }
+
+    }
+
+    return {atas,bawah,total};
+
+}
+
+function buatBaris(data){
+
+    return data
+        .map(x => `${x.berat}kg→${x.jumlah}個`)
+        .join("　");
+
+}
+
+function generate(){
+
+    const tokan =
+        proses(document.getElementById("tokan").value);
+
+    const toto =
+        proses(document.getElementById("toto").value);
+
+    document.getElementById("tokanTotal").textContent =
+        tokan.total;
+
+    document.getElementById("totoTotal").textContent =
+        toto.total;
+
+    document.getElementById("grandTotal").textContent =
+        tokan.total + toto.total;
+
+    let hasil = [];
+
+    hasil.push("重量落下チェッカー");
+    hasil.push("");
+
+    if(tokan.atas.length){
+        hasil.push(
+            "トーカン㊤　" + buatBaris(tokan.atas)
+        );
+    }
+
+    if(tokan.bawah.length){
+        hasil.push(
+            "トーカン㊦　" + buatBaris(tokan.bawah)
+        );
+    }
+
+    hasil.push(
+        `トーカン会計　${tokan.total}個`
+    );
+
+    hasil.push("");
+
+    if(toto.atas.length){
+        hasil.push(
+            "トート㊤　" + buatBaris(toto.atas)
+        );
+    }
+
+    if(toto.bawah.length){
+        hasil.push(
+            "トート㊦　" + buatBaris(toto.bawah)
+        );
+    }
+
+    hasil.push(
+        `トート会計　${toto.total}個`
+    );
+
+    hasil.push("");
+    hasil.push(
+        `会計　${tokan.total + toto.total}個`
+    );
+
+    document.getElementById("hasil").textContent =
+        hasil.join("\n");
+
+}
+
+function copyResult(){
+
+    navigator.clipboard.writeText(
+        document.getElementById("hasil").textContent
+    );
+
+    let toast =
+        document.getElementById("toast");
+
+    toast.classList.add("show");
+
+    setTimeout(()=>{
+        toast.classList.remove("show");
+    },1500);
+
+}
+
+function clearAll(){
+
+    document.getElementById("tokan").value = "";
+    document.getElementById("toto").value = "";
+
+    generate();
+
+}
+
+document.getElementById("tokan")
+.addEventListener("input", generate);
+
+document.getElementById("toto")
+.addEventListener("input", generate);
+
+generate();
+
+</script>
+
+</body>
+</html>
