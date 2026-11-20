@@ -4,10 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>重量落下チェッカー</title>
+<title>重量チェッカー落下数</title>
 
 <style>
-
 *{
     box-sizing:border-box;
     margin:0;
@@ -32,8 +31,8 @@ body{
 }
 
 .header p{
-    opacity:.8;
     margin-top:5px;
+    opacity:.85;
 }
 
 .container{
@@ -53,8 +52,8 @@ body{
     background:white;
     border-radius:16px;
     padding:20px;
-    box-shadow:0 5px 15px rgba(0,0,0,.08);
     text-align:center;
+    box-shadow:0 5px 15px rgba(0,0,0,.08);
 }
 
 .stat-title{
@@ -82,27 +81,22 @@ body{
 }
 
 .card h2{
-    margin-bottom:10px;
     color:#2563eb;
-}
-
-.card p{
-    color:#64748b;
     margin-bottom:10px;
 }
 
 textarea{
     width:100%;
-    height:240px;
+    height:250px;
     resize:vertical;
     border:1px solid #dbeafe;
     border-radius:12px;
     padding:12px;
     font-size:15px;
-    outline:none;
 }
 
 textarea:focus{
+    outline:none;
     border-color:#2563eb;
     box-shadow:0 0 0 4px rgba(37,99,235,.15);
 }
@@ -115,11 +109,10 @@ textarea:focus{
 
 button{
     border:none;
-    border-radius:10px;
     padding:12px 18px;
+    border-radius:10px;
     cursor:pointer;
     font-size:15px;
-    transition:.2s;
 }
 
 .primary{
@@ -144,10 +137,9 @@ button{
     color:#f8fafc;
     border-radius:12px;
     padding:20px;
-    min-height:530px;
+    min-height:540px;
     white-space:pre-wrap;
     line-height:1.8;
-    overflow:auto;
 }
 
 .toast{
@@ -177,14 +169,13 @@ button{
     }
 
 }
-
 </style>
 </head>
 
 <body>
 
 <div class="header">
-    <h1>重量落下チェッカー</h1>
+    <h1>重量チェッカー落下数</h1>
     <p>NG重量レポート自動作成ツール</p>
 </div>
 
@@ -203,7 +194,7 @@ button{
         </div>
 
         <div class="stat">
-            <div class="stat-title">会計</div>
+            <div class="stat-title">総計</div>
             <div class="stat-value" id="grandTotal">0</div>
         </div>
 
@@ -217,7 +208,7 @@ button{
 
                 <h2>トーカン</h2>
 
-                <textarea id="tokan"></textarea>
+                <textarea id="tokan" placeholder="重量（kg） 個数&#10;&#10;例）&#10;12.6 5&#10;12.1 2"></textarea>
 
             </div>
 
@@ -225,7 +216,7 @@ button{
 
                 <h2>トート</h2>
 
-                <textarea id="toto"></textarea>
+                <textarea id="toto" placeholder="重量（kg） 個数&#10;&#10;例）&#10;12.6 5&#10;12.1 2"></textarea>
 
                 <div class="actions">
 
@@ -267,9 +258,17 @@ button{
 
 function proses(text){
 
-    let atas = [];
-    let bawah = [];
+    let atasMap = {};
+    let bawahMap = {};
     let total = 0;
+
+    if(!text.trim()){
+        return {
+            atas:[],
+            bawah:[],
+            total:0
+        };
+    }
 
     let lines = text.trim().split(/\n/);
 
@@ -286,23 +285,51 @@ function proses(text){
         let berat = parseFloat(p[0]);
         let jumlah = parseInt(p[1]);
 
+        if(isNaN(berat) || isNaN(jumlah))
+            continue;
+
         total += jumlah;
 
-        let item = {
-            berat: berat.toFixed(1),
-            jumlah: jumlah
-        };
+        let key = berat.toFixed(1);
 
         if(berat >= 12.5){
-            atas.push(item);
+
+            atasMap[key] =
+                (atasMap[key] || 0) + jumlah;
+
         }
         else if(berat <= 12.1){
-            bawah.push(item);
+
+            bawahMap[key] =
+                (bawahMap[key] || 0) + jumlah;
+
         }
 
     }
 
-    return {atas,bawah,total};
+    let atas = Object.entries(atasMap)
+        .map(([berat,jumlah]) => ({
+            berat,
+            jumlah
+        }))
+        .sort((a,b)=>
+            parseFloat(a.berat)-parseFloat(b.berat)
+        );
+
+    let bawah = Object.entries(bawahMap)
+        .map(([berat,jumlah]) => ({
+            berat,
+            jumlah
+        }))
+        .sort((a,b)=>
+            parseFloat(b.berat)-parseFloat(a.berat)
+        );
+
+    return {
+        atas,
+        bawah,
+        total
+    };
 
 }
 
@@ -322,6 +349,9 @@ function generate(){
     const toto =
         proses(document.getElementById("toto").value);
 
+    const grandTotal =
+        tokan.total + toto.total;
+
     document.getElementById("tokanTotal").textContent =
         tokan.total;
 
@@ -329,50 +359,74 @@ function generate(){
         toto.total;
 
     document.getElementById("grandTotal").textContent =
-        tokan.total + toto.total;
+        grandTotal;
+
+    if(grandTotal === 0){
+        document.getElementById("hasil").textContent="";
+        return;
+    }
+
+    const produkTerisi =
+        (tokan.total > 0 ? 1 : 0) +
+        (toto.total > 0 ? 1 : 0);
 
     let hasil = [];
 
-    hasil.push("重量落下チェッカー");
+    hasil.push("重量チェッカー落下数");
     hasil.push("");
 
-    if(tokan.atas.length){
-        hasil.push(
-            "トーカン㊤　" + buatBaris(tokan.atas)
-        );
+    if(tokan.total > 0){
+
+        if(tokan.atas.length){
+            hasil.push(
+                "トーカン㊤　" +
+                buatBaris(tokan.atas)
+            );
+        }
+
+        if(tokan.bawah.length){
+            hasil.push(
+                "トーカン㊦　" +
+                buatBaris(tokan.bawah)
+            );
+        }
+
+        if(produkTerisi > 1){
+            hasil.push(
+                `トーカン合計　${tokan.total}個`
+            );
+        }
+
+        hasil.push("");
     }
 
-    if(tokan.bawah.length){
-        hasil.push(
-            "トーカン㊦　" + buatBaris(tokan.bawah)
-        );
+    if(toto.total > 0){
+
+        if(toto.atas.length){
+            hasil.push(
+                "トート㊤　" +
+                buatBaris(toto.atas)
+            );
+        }
+
+        if(toto.bawah.length){
+            hasil.push(
+                "トート㊦　" +
+                buatBaris(toto.bawah)
+            );
+        }
+
+        if(produkTerisi > 1){
+            hasil.push(
+                `トート合計　${toto.total}個`
+            );
+        }
+
+        hasil.push("");
     }
 
     hasil.push(
-        `トーカン会計　${tokan.total}個`
-    );
-
-    hasil.push("");
-
-    if(toto.atas.length){
-        hasil.push(
-            "トート㊤　" + buatBaris(toto.atas)
-        );
-    }
-
-    if(toto.bawah.length){
-        hasil.push(
-            "トート㊦　" + buatBaris(toto.bawah)
-        );
-    }
-
-    hasil.push(
-        `トート会計　${toto.total}個`
-    );
-
-    hasil.push("");
-    hasil.push(
-        `会計　${tokan.total + toto.total}個`
+        `総計　${grandTotal}個`
     );
 
     document.getElementById("hasil").textContent =
@@ -386,7 +440,7 @@ function copyResult(){
         document.getElementById("hasil").textContent
     );
 
-    let toast =
+    const toast =
         document.getElementById("toast");
 
     toast.classList.add("show");
